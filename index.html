@@ -10,6 +10,15 @@
   <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+  <!-- MathJax v4: render the LaTeX in the "Show the math" blocks. SVG output is
+       robust inside collapsed <details> (no container measurement needed). -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' },
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-svg.js" id="MathJax-script" async></script>
 </head>
 <body>
 <header>
@@ -133,14 +142,16 @@
     <details>
       <summary>Show the math</summary>
       <p>
-        If each of <code>n</code> graduates passes independently with true
-        probability <code>p</code>, the number who pass is Binomial(<code>n</code>,
-        <code>p</code>). The program clears the rule when at least
-        <code>k_min = &lceil;cutoff &times; n&rceil;</code> pass, so
+        If each of \(n\) graduates passes independently with true probability
+        \(p\), the number who pass is \(\text{Binomial}(n, p)\). For a pass
+        standard \(c\), the program clears the rule when at least
+        \(k_{\min} = \lceil c\,n \rceil\) pass, so
       </p>
       <p class="eq">
-        P(pass) = &Sigma;<sub>k = k_min..n</sub> C(n,k) p<sup>k</sup>
-        (1&minus;p)<sup>n&minus;k</sup> = 1 &minus; CDF(k_min &minus; 1).
+        \[
+          P(\text{pass}) = \sum_{k=k_{\min}}^{n} \binom{n}{k}\, p^{k}\,
+          (1-p)^{\,n-k} = 1 - \mathrm{CDF}(k_{\min} - 1).
+        \]
       </p>
     </details>
   </section>
@@ -314,19 +325,18 @@
     <div class="chart-box"><canvas id="cusumChart"></canvas></div>
     <p class="hint">
       Each step is one graduating resident over a 7-year program (about 1&ndash;2 per
-      year). The V-mask arms have slope &plusmn;k; any point that escapes an arm is
+      year). The V-mask arms have slope \(\pm k\); any point that escapes an arm is
       flagged red. The deterioration scenario typically trips the alarm a year or
       two after quality drops &mdash; well before a 3-year average would.
     </p>
     <details>
       <summary>Show the math &amp; the rigorous version</summary>
       <p>
-        We standardize each result as <code>z = (x &minus; p0)/&sigma;</code> with
-        <code>&sigma; = &radic;(p0(1&minus;p0))</code>, plot the running sum, and run
-        the equivalent tabular test
-        <code>S_lo = max(0, S_lo &minus; z &minus; k)</code>, flagging when
-        <code>S_lo &gt; h</code>. The shift to detect is
-        <code>&delta; = (p0 &minus; p1)/&sigma;</code> and <code>k = &delta;/2</code>
+        We standardize each result as \(z = (x - p_0)/\sigma\) with
+        \(\sigma = \sqrt{p_0(1 - p_0)}\), plot the running sum, and run the
+        equivalent tabular test \(S_{\text{lo}} = \max(0,\; S_{\text{lo}} - z - k)\),
+        flagging when \(S_{\text{lo}} > h\). The shift to detect is
+        \(\delta = (p_0 - p_1)/\sigma\) and \(k = \delta/2\)
         (NIST e-Handbook 6.3.2.3). For binary data the fully rigorous tool is the
         Bernoulli <em>risk-adjusted</em> CUSUM (Steiner et&nbsp;al., 2000), which
         accumulates a log-likelihood-ratio score and also accommodates differing
