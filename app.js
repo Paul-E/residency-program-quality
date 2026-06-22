@@ -164,12 +164,25 @@ const WILSON_ROWS = [
   [8, 9],
   [10, 12],
 ];
+// The k the user has actually chosen. Tracked separately so that lowering n
+// (which temporarily caps k at n) does not permanently lose their choice when
+// n is raised again.
+let wilsonWantedK = 3;
+
+// Build a descriptive y-axis label for one row. Canonical rows assume the
+// 3-year window, so residents/year = n / 3; the user row is labelled as such.
+function wilsonLabel([kk, nn], isUser) {
+  const pct = Math.round((kk / nn) * 100);
+  if (isUser) return `${kk} of ${nn} = ${pct}%  ·  your selection`;
+  const size = nn / 3;
+  return `${kk} of ${nn} = ${pct}%  ·  ${size}/yr program`;
+}
 
 function renderWilson() {
   const n = +$('wNInput').value;
-  // keep k in range [0, n]
+  // display k, capped at n, without overwriting the user's intended k
+  const k = Math.min(wilsonWantedK, n);
   $('wKInput').max = n;
-  let k = Math.min(+$('wKInput').value, n);
   $('wKInput').value = k;
   const conf = +$('wConfInput').value / 100;
 
@@ -178,7 +191,10 @@ function renderWilson() {
   $('wConf').textContent = (conf * 100).toFixed(0);
 
   const rows = [...WILSON_ROWS, [k, n]];
-  const labels = rows.map(([kk, nn]) => `${kk}/${nn}`);
+  const labels = [
+    ...WILSON_ROWS.map((r) => wilsonLabel(r, false)),
+    wilsonLabel([k, n], true),
+  ];
   const intervals = rows.map(([kk, nn]) => wilsonInterval(kk, nn, conf));
 
   const ci = wilsonInterval(k, n, conf);
@@ -535,7 +551,12 @@ function onChange(ids, fn) {
 
 onChange(['cutoffYears', 'cutoffStd'], renderCutoffTable);
 onChange(['ocYears', 'ocStd'], renderOc);
-onChange(['wKInput', 'wNInput', 'wConfInput'], renderWilson);
+// The k slider records the user's intended k; n and confidence just re-render.
+onChange(['wKInput'], () => {
+  wilsonWantedK = +$('wKInput').value;
+  renderWilson();
+});
+onChange(['wNInput', 'wConfInput'], renderWilson);
 onChange(['funnelP', 'funnelYears'], renderFunnel);
 on('funnelReroll', 'click', () => {
   funnelSeed = (funnelSeed * 1664525 + 1013904223) >>> 0;

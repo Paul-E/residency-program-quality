@@ -173,9 +173,14 @@
     <p id="wReadout" class="readout"></p>
     <div class="chart-box"><canvas id="wilsonChart"></canvas></div>
     <p class="hint">
-      Each bar is the 95% Wilson confidence interval for a representative result.
-      The dashed line is the 80% standard. Wherever a bar crosses the line, the data
-      can&rsquo;t confidently say the program is above <em>or</em> below standard.
+      Each bar is the Wilson confidence interval for the true pass-rate, and the
+      black dot is what the program actually scored. The dashed line is the 80%
+      standard &mdash; wherever a bar crosses it, the data can&rsquo;t confidently
+      say the program is above <em>or</em> below standard. The <strong>top four
+      rows</strong> are fixed reference cases: the smallest passing result for each
+      program size (1&ndash;4 residents/year over 3 years). The <strong>bottom row
+      (&ldquo;your selection&rdquo;)</strong> follows the <em>Passes</em> and
+      <em>Graduates</em> sliders above, so you can test any result yourself.
     </p>
     <details>
       <summary>Show the math &amp; caveats</summary>
@@ -256,6 +261,32 @@
       problem the moment a past point pokes outside its arm. It catches a real
       decline faster than waiting three years, while controlling false alarms.
     </p>
+    <dl class="explainer">
+      <dt>Acceptable rate (p0)</dt>
+      <dd>
+        The pass rate you consider <em>fine</em> &mdash; the standard a program is
+        meant to meet (80%). A program truly performing at this level should
+        <strong>not</strong> trigger the alarm.
+      </dd>
+      <dt>Unacceptable rate (p1)</dt>
+      <dd>
+        A clearly-too-low pass rate you want to <em>catch quickly</em> (e.g. 65%).
+        The chart continuously weighs each program&rsquo;s results between these two
+        levels &mdash; &ldquo;does this look more like an 80% program or a 65%
+        one?&rdquo; &mdash; and signals once the evidence points to p1. The
+        <strong>gap</strong> between p0 and p1 sets the sensitivity: a smaller gap
+        catches gentler declines (but risks more false alarms); a larger gap reacts
+        only to bigger collapses.
+      </dd>
+      <dt>Decision interval (h)</dt>
+      <dd>
+        How much accumulated evidence is required before sounding the alarm &mdash;
+        the depth of the V-mask. A <strong>higher h</strong> demands stronger proof,
+        so there are fewer false alarms but slower detection; a <strong>lower h</strong>
+        reacts sooner but cries wolf more often. Values around 4&ndash;5 are the
+        usual rule of thumb.
+      </dd>
+    </dl>
     <div class="controls">
       <label>
         Acceptable rate (p0): <strong><span id="cusumP0Val">80</span>%</strong>
