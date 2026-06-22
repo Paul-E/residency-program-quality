@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How noisy is the residency-program pass-rate rule?</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Libraries (pinned, via CDN). UMD builds expose globals jStat / Chart and
+       the annotation plugin auto-registers with Chart.js. -->
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>How noisy is the residency-program pass-rate rule?</h1>
+    <p class="tagline">
+      An interactive look at why a single &ldquo;80% pass rate&rdquo; rule does not
+      measure small and large training programs equally &mdash; and what fairer
+      alternatives look like.
+    </p>
+  </div>
+</header>
+
+<nav id="toc">
+  <div class="wrap">
+    <a href="#intro">The rule</a>
+    <a href="#cutoff">1 · Effective cutoff</a>
+    <a href="#oc">2 · Odds of passing</a>
+    <a href="#wilson">3 · Uncertainty</a>
+    <a href="#funnel">4 · Funnel plot</a>
+    <a href="#tension">5 · The tradeoff</a>
+    <a href="#cusum">6 · CUSUM monitoring</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- 0. INTRO ------------------------------------------------------------ -->
+  <section id="intro">
+    <h2>The rule, and why size matters</h2>
+    <p>
+      Every neurosurgery residency program is judged the same way: residents must
+      maintain at least an <strong>80% board-pass rate, averaged over the most
+      recent three years</strong>. The catch is that programs are not the same
+      size. Some graduate one resident a year; a few graduate four. So the number
+      of graduates the rule actually looks at &mdash; the <em>denominator</em>
+      &mdash; ranges from about 3 to about 12.
+    </p>
+    <p>
+      When you judge a coin by a handful of flips, luck dominates. The same is
+      true here: with only a few graduates, a single unlucky board failure can
+      flip a good program from &ldquo;pass&rdquo; to &ldquo;fail.&rdquo; This page
+      lets you <strong>change the inputs and watch how much of the outcome is
+      driven by chance rather than by training quality.</strong>
+    </p>
+    <table class="static">
+      <thead>
+        <tr><th>Residents / year</th><th>Graduates in a 3-year window (n)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>3</td></tr>
+        <tr><td>2</td><td>6</td></tr>
+        <tr><td>3</td><td>9</td></tr>
+        <tr><td>4</td><td>12</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 1. EFFECTIVE CUTOFF ------------------------------------------------- -->
+  <section id="cutoff">
+    <h2>1 &middot; The same rule isn&rsquo;t the same rule</h2>
+    <p>
+      You can&rsquo;t pass &ldquo;80% of 3 residents.&rdquo; You either pass 2 of 3
+      (67%) or 3 of 3 (100%) &mdash; there is nothing in between. So an 80% rule
+      quietly becomes a <strong>100%</strong> rule for the smallest programs. The
+      table below shows the <em>real</em> bar each program size has to clear.
+    </p>
+    <div class="controls">
+      <label>
+        Evaluation window: <strong><span id="cutoffYearsVal">3</span> years</strong>
+        <input type="range" id="cutoffYears" min="1" max="7" value="3" />
+      </label>
+      <label>
+        Pass standard: <strong><span id="cutoffStdVal">80</span>%</strong>
+        <input type="range" id="cutoffStd" min="50" max="100" step="1" value="80" />
+      </label>
+    </div>
+    <table id="cutoffTable" class="data"></table>
+    <p class="callout">
+      Notice the <strong>3-residents/year</strong> row: because 80% of 9 is 7.2,
+      the program must get 8 of 9 &mdash; an <strong>88.9%</strong> effective bar,
+      <em>harsher</em> than the 2/year and 4/year programs. The rule is uneven in a
+      way that has nothing to do with quality.
+    </p>
+  </section>
+
+  <!-- 2. OPERATING CHARACTERISTIC ----------------------------------------- -->
+  <section id="oc">
+    <h2>2 &middot; What are the odds of passing, really?</h2>
+    <p>
+      Suppose we knew a program&rsquo;s <em>true</em> quality &mdash; the long-run
+      probability that any one of its residents passes the boards. How often would
+      that program actually clear the rule in a given window? The answer, below, is
+      unsettling: a program whose true quality is <strong>exactly 80%</strong> only
+      passes the 80% rule roughly <strong>44&ndash;66% of the time</strong>,
+      depending on its size. Half of genuinely-adequate small programs fail by luck.
+    </p>
+    <div class="controls">
+      <label>
+        Evaluation window: <strong><span id="ocYearsVal">3</span> years</strong>
+        <input type="range" id="ocYears" min="1" max="7" value="3" />
+      </label>
+      <label>
+        Pass standard: <strong><span id="ocStdVal">80</span>%</strong>
+        <input type="range" id="ocStd" min="50" max="100" step="1" value="80" />
+      </label>
+    </div>
+    <table id="ocTable" class="data heat"></table>
+    <p class="hint">
+      Each cell is the probability a program of that size passes the rule, given its
+      true resident pass-rate. Greener = more likely to pass.
+    </p>
+    <div class="chart-box"><canvas id="ocChart"></canvas></div>
+    <p class="hint">
+      The curves above are &ldquo;operating characteristic&rdquo; curves: the
+      probability of passing the rule (y) versus the program&rsquo;s true quality
+      (x). A perfect rule would be a straight vertical line at the standard. These
+      gentle S-curves show how much luck is in play &mdash; and how the small
+      programs&rsquo; curves sit lowest.
+    </p>
+    <details>
+      <summary>Show the math</summary>
+      <p>
+        If each of <code>n</code> graduates passes independently with true
+        probability <code>p</code>, the number who pass is Binomial(<code>n</code>,
+        <code>p</code>). The program clears the rule when at least
+        <code>k_min = &lceil;cutoff &times; n&rceil;</code> pass, so
+      </p>
+      <p class="eq">
+        P(pass) = &Sigma;<sub>k = k_min..n</sub> C(n,k) p<sup>k</sup>
+        (1&minus;p)<sup>n&minus;k</sup> = 1 &minus; CDF(k_min &minus; 1).
+      </p>
+    </details>
+  </section>
+
+  <!-- 3. WILSON UNCERTAINTY ----------------------------------------------- -->
+  <section id="wilson">
+    <h2>3 &middot; How much can one window really tell us?</h2>
+    <p>
+      Turn it around: given what a program <em>actually did</em>, how sure can we be
+      about its true quality? A confidence interval answers that. Even a
+      &ldquo;perfect&rdquo; program that goes 3-for-3 has a true pass-rate that could
+      plausibly be anywhere from about <strong>44% to 100%</strong>. In other words,
+      a perfect small program is statistically hard to tell apart from one whose
+      true rate is well below the standard.
+    </p>
+    <div class="controls">
+      <label>
+        Passes (k): <strong><span id="wK">3</span></strong>
+        <input type="range" id="wKInput" min="0" max="12" value="3" />
+      </label>
+      <label>
+        Graduates (n): <strong><span id="wN">3</span></strong>
+        <input type="range" id="wNInput" min="1" max="12" value="3" />
+      </label>
+      <label>
+        Confidence: <strong><span id="wConf">95</span>%</strong>
+        <input type="range" id="wConfInput" min="80" max="99" step="1" value="95" />
+      </label>
+    </div>
+    <p id="wReadout" class="readout"></p>
+    <div class="chart-box"><canvas id="wilsonChart"></canvas></div>
+    <p class="hint">
+      Each bar is the 95% Wilson confidence interval for a representative result.
+      The dashed line is the 80% standard. Wherever a bar crosses the line, the data
+      can&rsquo;t confidently say the program is above <em>or</em> below standard.
+    </p>
+    <details>
+      <summary>Show the math &amp; caveats</summary>
+      <p>
+        These are <strong>Wilson score</strong> intervals &mdash; the recommended
+        choice for small samples and proportions near 100% (NIST e-Handbook 7.2.4.1;
+        Wikipedia, &ldquo;Binomial proportion confidence interval&rdquo;). A 3/3
+        result genuinely has an upper bound of exactly 100%. All of these intervals
+        assume each graduate&rsquo;s board result is independent with a common true
+        pass-rate.
+      </p>
+    </details>
+  </section>
+
+  <!-- 4. FUNNEL PLOT ------------------------------------------------------ -->
+  <section id="funnel">
+    <h2>4 &middot; The funnel plot</h2>
+    <p>
+      This is the standard picture used in hospital-quality monitoring. Each dot is
+      a program: its size on the horizontal axis, its observed pass-rate on the
+      vertical. The funnel-shaped bands show the range of results we&rsquo;d
+      <em>expect from chance alone</em> if every program were exactly at the
+      standard. The bands flare out for small programs &mdash; that wide scatter is
+      normal, not evidence of bad training.
+    </p>
+    <div class="controls">
+      <label>
+        True quality of every simulated program:
+        <strong><span id="funnelPVal">80</span>%</strong>
+        <input type="range" id="funnelP" min="50" max="100" step="1" value="80" />
+      </label>
+      <label>
+        Evaluation window: <strong><span id="funnelYearsVal">3</span> years</strong>
+        <input type="range" id="funnelYears" min="1" max="7" value="3" />
+      </label>
+      <button id="funnelReroll" type="button">Re-roll programs</button>
+    </div>
+    <div class="chart-box"><canvas id="funnelChart"></canvas></div>
+    <p class="hint">
+      Inner band = 95% limits; outer band = 99.8% limits (the usual outlier line).
+      Even when every program here is identical in true quality, small ones scatter
+      far &mdash; some past the bands &mdash; purely by luck.
+    </p>
+    <p class="callout">
+      A point outside the funnel is a <strong>candidate for a closer look</strong>,
+      not a verdict. And if programs genuinely differ in quality (they do), extra
+      scatter beyond the bands reflects real differences &mdash; so strict limits
+      can over-flag. (Spiegelhalter 2005; Verburg et&nbsp;al.)
+    </p>
+  </section>
+
+  <!-- 5. TENSION ---------------------------------------------------------- -->
+  <section id="tension">
+    <h2>5 &middot; The real tension: noise vs. speed</h2>
+    <p>
+      The obvious fix &mdash; use a longer window &mdash; cuts the noise but
+      <em>slows down</em> the discovery of a program that has genuinely started
+      training residents poorly. We want to protect patients by catching real
+      problems quickly, <em>and</em> avoid falsely condemning an adequate program
+      that hit a rough patch. A fixed 3-year cliff does neither job well.
+    </p>
+    <p>
+      A better idea borrowed from manufacturing and surgical-outcomes monitoring is
+      to <strong>accumulate evidence continuously</strong> and raise a flag only
+      when the evidence is strong. That is what a CUSUM chart does.
+    </p>
+  </section>
+
+  <!-- 6. CUSUM ------------------------------------------------------------ -->
+  <section id="cusum">
+    <h2>6 &middot; CUSUM monitoring with a V-mask</h2>
+    <p>
+      A CUSUM (&ldquo;cumulative sum&rdquo;) chart adds up how far each
+      resident&rsquo;s result falls above or below the acceptable rate. As long as a
+      program performs adequately, the line drifts flat or upward. If quality slips,
+      the line bends steadily downward. A <strong>V-mask</strong> &mdash; the
+      sideways &ldquo;V&rdquo; laid over the most recent point &mdash; signals a
+      problem the moment a past point pokes outside its arm. It catches a real
+      decline faster than waiting three years, while controlling false alarms.
+    </p>
+    <div class="controls">
+      <label>
+        Acceptable rate (p0): <strong><span id="cusumP0Val">80</span>%</strong>
+        <input type="range" id="cusumP0" min="60" max="95" step="1" value="80" />
+      </label>
+      <label>
+        Unacceptable rate (p1): <strong><span id="cusumP1Val">65</span>%</strong>
+        <input type="range" id="cusumP1" min="40" max="79" step="1" value="65" />
+      </label>
+      <label>
+        Decision interval (h): <strong><span id="cusumHVal">4.0</span></strong>
+        <input type="range" id="cusumH" min="2" max="8" step="0.5" value="4" />
+      </label>
+      <label>
+        Scenario:
+        <select id="cusumScenario">
+          <option value="good">Steady &mdash; good (true 90%)</option>
+          <option value="marginal">Steady &mdash; marginal (true 80%)</option>
+          <option value="decline" selected>Deteriorates after year 4</option>
+        </select>
+      </label>
+      <button id="cusumReroll" type="button">Re-roll residents</button>
+    </div>
+    <p id="cusumReadout" class="readout"></p>
+    <div class="chart-box"><canvas id="cusumChart"></canvas></div>
+    <p class="hint">
+      Each step is one graduating resident over a 7-year program (about 1&ndash;2 per
+      year). The V-mask arms have slope &plusmn;k; any point that escapes an arm is
+      flagged red. The deterioration scenario typically trips the alarm a year or
+      two after quality drops &mdash; well before a 3-year average would.
+    </p>
+    <details>
+      <summary>Show the math &amp; the rigorous version</summary>
+      <p>
+        We standardize each result as <code>z = (x &minus; p0)/&sigma;</code> with
+        <code>&sigma; = &radic;(p0(1&minus;p0))</code>, plot the running sum, and run
+        the equivalent tabular test
+        <code>S_lo = max(0, S_lo &minus; z &minus; k)</code>, flagging when
+        <code>S_lo &gt; h</code>. The shift to detect is
+        <code>&delta; = (p0 &minus; p1)/&sigma;</code> and <code>k = &delta;/2</code>
+        (NIST e-Handbook 6.3.2.3). For binary data the fully rigorous tool is the
+        Bernoulli <em>risk-adjusted</em> CUSUM (Steiner et&nbsp;al., 2000), which
+        accumulates a log-likelihood-ratio score and also accommodates differing
+        case difficulty; the normal-theory version shown here is a close,
+        easier-to-picture approximation.
+      </p>
+    </details>
+  </section>
+
+  <section id="closing">
+    <h2>The bottom line</h2>
+    <p>
+      The current rule does not evaluate all programs with equal precision. Over only
+      three years, observed 80% compliance carries a lot of random noise &mdash; it
+      can fail genuinely-adequate small programs and pass genuinely-weak ones by
+      chance. A fairer system accounts for size and uncertainty: report confidence
+      intervals, use funnel limits instead of one flat line, and monitor
+      continuously so real problems are caught quickly without condemning programs
+      for bad luck.
+    </p>
+  </section>
+
+  <footer>
+    <p>
+      Sources: NIST/SEMATECH e-Handbook (&sect;6.3.2.3 CUSUM, &sect;7.2.4.1 Wilson);
+      Spiegelhalter 2005 (funnel plots); Steiner et&nbsp;al. 2000 (risk-adjusted
+      CUSUM). Built with Chart.js, the annotation plugin, and jStat.
+    </p>
+  </footer>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
